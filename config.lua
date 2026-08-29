@@ -8,8 +8,9 @@
 
 Config = {}
 
--- Resource whose caches must reload after a rotation is applied.
-Config.RestartResource = 'rcore_drugs'
+-- Resources whose caches must reload after a rotation is applied. A single
+-- string still works; a list reloads each in turn.
+Config.RestartResource = { 'rcore_drugs', 'rcore_casino' }
 Config.RestartDelayMs  = 8000  -- let the boot settle before bouncing it
 
 -- Ace for the /rotate admin command (add_ace group.admin dps.rotations allow)
@@ -17,7 +18,27 @@ Config.RotateAce = 'dps.rotations'
 
 -- target = 'dealer'  -> UPDATE rcore_drugs_dealer_locations WHERE dealer_type = key
 -- target = 'harvest' -> UPDATE rcore_drugs_harvests WHERE id = row_id
+-- target = 'podium'  -> rewrites PodiumPriceProps.podiumName inside casino_cache.Settings
 Config.Rotations = {
+
+    -- The casino's weekly giveaway car. Pool entries use `model` (spawn name)
+    -- and `label` (what gets logged and stored in the rotation state).
+    -- Custom packs only — deliberately no stock DLC vehicles.
+    { id = 'casino_podium', cadence = 'weekly', target = 'podium', row_id = 1,
+      pool = {
+        { label = 'Podium — Porsche 911 RS',        model = 'peptos_911rs' },
+        { label = 'Podium — Jester Widebody',       model = 'jester4wb'    },
+        { label = 'Podium — RT3000 Widebody',       model = 'rt3000wb'     },
+        { label = 'Podium — ZR350',                 model = 'gbzr350'      },
+        { label = 'Podium — Tokage II',             model = 'gbtokage2'    },
+        { label = 'Podium — Elegy Z2',              model = 'elegyz2'      },
+        { label = 'Podium — Emerus',                model = 'gbemerus'     },
+        { label = 'Podium — Prospero',              model = 'gbprospero'   },
+        { label = 'Podium — Ninja H2R',             model = 'nh2r'         },
+        { label = 'Podium — RSV4',                  model = 'rsv4'         },
+        { label = 'Podium — Desmo',                 model = 'desmo'        },
+        { label = 'Podium — Street Glide Special',  model = 'flhxs_streetglide_special18' },
+      } },
 
     { id = 'supplier', cadence = 'daily', target = 'dealer', dealer_type = 'supplier',
       pool = {

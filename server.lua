@@ -47,6 +47,31 @@ local function applyHarvest(job, loc)
     )
 end
 
+-- The casino keeps its podium car inside a JSON settings blob rather than a
+-- column, so this reads, edits one key, and writes the blob back — everything
+-- else in there (colours, mods, plate) is left exactly as found.
+local function applyPodium(job, loc)
+    local row = MySQL.single.await('SELECT Settings FROM casino_cache WHERE ID = ?', { job.row_id or 1 })
+    if not row or not row.Settings then
+        print('[dps-rotations] podium: casino_cache row missing — has the casino booted once?')
+        return 0
+    end
+
+    local ok, settings = pcall(json.decode, row.Settings)
+    if not ok or type(settings) ~= 'table' then
+        print('[dps-rotations] podium: casino_cache Settings is not valid JSON — leaving it alone')
+        return 0
+    end
+
+    settings.PodiumPriceProps = settings.PodiumPriceProps or {}
+    settings.PodiumPriceProps.podiumName = loc.model
+
+    return MySQL.update.await(
+        'UPDATE casino_cache SET Settings = ? WHERE ID = ?',
+        { json.encode(settings), job.row_id or 1 }
+    )
+end
+
 local function ensureStateTable()
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS dps_rotations_state (
@@ -91,6 +116,8 @@ local function runJob(job, force)
         ok = applyDealer(job, loc)
     elseif job.target == 'harvest' then
         ok = applyHarvest(job, loc)
+    elseif job.target == 'podium' then
+        ok = applyPodium(job, loc)
     end
 
     if ok and ok > 0 then
@@ -103,10 +130,16 @@ local function runJob(job, force)
     return false
 end
 
+-- Accepts a single resource name or a list, so a rotation touching more than one
+-- system reloads all of them. Existing single-string configs keep working.
 local function restartTarget()
     SetTimeout(Config.RestartDelayMs, function()
-        print(('[dps-rotations] reloading %s to pick up rotated locations'):format(Config.RestartResource))
-        ExecuteCommand('restart ' .. Config.RestartResource)
+        local targets = Config.RestartResource
+        if type(targets) == 'string' then targets = { targets } end
+        for _, res in ipairs(targets) do
+            print(('[dps-rotations] reloading %s to pick up rotated locations'):format(res))
+            ExecuteCommand('restart ' .. res)
+        end
     end)
 end
 
